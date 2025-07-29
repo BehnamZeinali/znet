@@ -16,9 +16,14 @@ class Linear(Module):
         out = Tensor(out_data, requires_grad=x.requires_grad or self.weight.requires_grad)
 
         def _grad_fn(grad_output):
-            self.weight.grad += grad_output.T @ x.data
-            self.bias.grad += grad_output.sum(axis=0)
-            return grad_output @ self.weight.data
+            if self.weight.requires_grad:
+                self.weight.grad += grad_output.T @ x.data
+            if self.bias.requires_grad:
+                self.bias.grad += grad_output.sum(axis=0)
+            x_grad = grad_output @ self.weight.data
+            return x_grad
 
-        out.set_backward(_grad_fn, [x])
+        out._backward = lambda: None
+        out._prev = [x]
+        out._grad_fn = _grad_fn
         return out

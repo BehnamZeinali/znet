@@ -9,5 +9,7 @@ class ReLU(Module):
         def _grad_fn(grad_output):
             return grad_output * (x.data > 0).astype(np.float32)
 
-        out.set_backward(_grad_fn, [x])
+        out._backward = lambda: None  # Just a placeholder, not used in this design
+        out._prev = [x]
+        out._grad_fn = _grad_fn
         return out

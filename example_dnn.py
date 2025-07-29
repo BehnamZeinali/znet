@@ -34,12 +34,12 @@ def train():
     in_features = 2
     hidden = 16
     num_classes = 3
-    num_epochs = 50
+    num_epochs = 100
     batch_size = 16
     lr = 0.1
 
     # Data
-    X_data, y_data = generate_data(num_samples=200, in_features=in_features, num_classes=num_classes)
+    X_data, y_data = generate_data(num_samples=1000, in_features=in_features, num_classes=num_classes)
 
     # Convert to Tensor
     X = Tensor(X_data, requires_grad=True)

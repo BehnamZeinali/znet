@@ -13,7 +13,7 @@ epochs = 3
 learning_rate = 1e-3
 batch_size = 4
 num_epochs = 3
-data_dir = "../../../data"
+data_dir = "data"
 
 torch.set_float32_matmul_precision("high")
 
@@ -61,6 +61,13 @@ for idx, (data, label) in enumerate(test_loader):
 
 print("Test Data Shape:", test_data.shape)
 print("Test Data Type:", test_data.dtype)
+
+
+np.savez("mnist_data.npz",
+         train_data=train_data.cpu().numpy(),
+         train_labels=train_labels.cpu().numpy(),
+         test_data=test_data.cpu().numpy(),
+         test_labels=test_labels.cpu().numpy())
 
 iters_per_epoch = TRAIN_SIZE // batch_size
 print("Iters per epoch:", iters_per_epoch)
