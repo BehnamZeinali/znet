@@ -9,113 +9,103 @@ from znet.autograd import Tensor
 # from torch.utils.data import DataLoader
 # from torchvision import datasets, transforms
 
-TRAIN_SIZE = 10000
-epochs = 20
-learning_rate = 1e-3
-batch_size = 64
-data_dir = "data"
 
+
+
+# -------------------- config --------------------
+TRAIN_SIZE   = 10000
+epochs       = 20
+learning_rate = 1e-3
+batch_size   = 4
+
+# -------------------- data ----------------------
 data = np.load("mnist_data.npz")
-train_data = data["train_data"]
-train_labels = data["train_labels"]
-test_data = data["test_data"]
+train_data  = data["train_data"]   # expect (N, 28, 28) uint8 or float
+train_labels = data["train_labels"]  # (N,)
+test_data   = data["test_data"]
 test_labels = data["test_labels"]
 
+# normalize to float32 in [0,1]
+if train_data.dtype != np.float32:
+    train_data = train_data.astype(np.float32) / 255.0
+if test_data.dtype != np.float32:
+    test_data = test_data.astype(np.float32) / 255.0
 
-
-print("Train Data Shape:", train_data.shape)
-print("Train Data Type:", train_data.dtype)
-
-
-
-print("Test Data Shape:", test_data.shape)
-print("Test Data Type:", test_data.dtype)
-
-
+print("Train Data Shape:", train_data.shape, "dtype:", train_data.dtype)
+print("Test  Data Shape:", test_data.shape,  "dtype:", test_data.dtype)
 
 iters_per_epoch = TRAIN_SIZE // batch_size
 print("Iters per epoch:", iters_per_epoch)
 
-
+# -------------------- model ---------------------
 class MLP(nn.Module):
     def __init__(self, in_features, hidden_features, num_classes):
-        super(MLP, self).__init__()
-        self.fc1 = nn.Linear(in_features, hidden_features)
+        super().__init__()
+        self.fc1  = nn.Linear(in_features, hidden_features, bias=True)
         self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(hidden_features, num_classes)
+        self.fc2  = nn.Linear(hidden_features, num_classes, bias=True)
 
-    def forward(self, x):
-        x = x.reshape((batch_size, 28 * 28))
+    def forward(self, x: Tensor):
+        # x: (B, 28, 28) -> (B, 784); use dynamic batch dim, keep engine-compatible reshape
+        x = x.reshape((x.shape[0], -1))
         x = self.fc1(x)
         x = self.relu(x)
         x = self.fc2(x)
         return x
 
-
-# model = MLP(in_features=784, hidden_features=256, num_classes=10).to("cuda")
 model = MLP(in_features=784, hidden_features=256, num_classes=10)
-# model = torch.compile(model)
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+criterion = nn.CrossEntropyLoss(reduction="mean")
+optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
 
-
-# Training the model
+# -------------------- train ---------------------
 def train(model, criterion, optimizer, epoch):
-    # model.train()
     running_loss = 0.0
+    # simple shuffling each epoch
+    idx = np.random.permutation(TRAIN_SIZE)
 
     for i in range(iters_per_epoch):
-        
+        batch_idx = idx[i * batch_size : (i + 1) * batch_size]
+
+        # Inputs do NOT need requires_grad; params already require_grad=True
+        data_batch = Tensor(train_data[batch_idx], requires_grad=False)
+        target_batch = Tensor(train_labels[batch_idx].astype(np.int64), requires_grad=False)
+
         optimizer.zero_grad()
-        # data = train_data[i * batch_size : (i + 1) * batch_size].to("cuda")
-        # target = train_labels[i * batch_size : (i + 1) * batch_size].to("cuda")
-        data = Tensor(train_data[i * batch_size : (i + 1) * batch_size], requires_grad=True)
-        target = Tensor(train_labels[i * batch_size : (i + 1) * batch_size], dtype=np.int32)
 
         start = time.time()
-        outputs = model(data)
-        loss = criterion(outputs, target)
+        outputs = model(data_batch)                 # (B, 10)
+        loss     = criterion(outputs, target_batch) # scalar
         loss.backward()
         optimizer.step()
-        optimizer.zero_grad()
         end = time.time()
+
         running_loss += loss.item()
-        if i % 10 == 0 :
-            print(f"Epoch: {epoch+1}, Iter: {i+1}, Loss: {loss.item():.4f}")
-            print(f"Iteration Time: {(end - start) * 1e3:.4f} sec")
+        if i % 10 == 0:
+            print(f"Epoch: {epoch+1}, Iter: {i+1}, Loss: {loss.item():.4f}, "
+                  f"Iter Time: {(end - start)*1e3:.2f} ms")
             running_loss = 0.0
 
-
-# Evaluation function to report average batch accuracy using the loaded test data
+# -------------------- eval ----------------------
 def evaluate(model, test_data, test_labels):
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # model.to(device)
-    # model.eval()
+    total_correct = 0
+    total_seen = 0
+    num_batches = len(test_data) // batch_size
 
-    total_batch_accuracy = np.zeros(1)
-    num_batches = 0
+    for i in range(num_batches):
+        data_batch = Tensor(test_data[i * batch_size : (i + 1) * batch_size], requires_grad=False)
+        target_batch = Tensor(test_labels[i * batch_size : (i + 1) * batch_size].astype(np.int64), requires_grad=False)
 
-    # with znet.no_grad():
-    for i in range(len(test_data) // batch_size):
-        data = Tensor(test_data[i * batch_size : (i + 1) * batch_size])
-        target = Tensor(test_labels[i * batch_size : (i + 1) * batch_size], dtype=np.int32)
-        outputs = model(data)
-        predicted = np.argmax(outputs.data, axis=1)
-        correct_batch = (predicted == target.data).sum().item()
-        total_batch = target.data.shape[0]
-        if total_batch != 0:  # Check to avoid division by zero
-            batch_accuracy = correct_batch / total_batch
-            total_batch_accuracy += batch_accuracy
-            num_batches += 1
+        logits = model(data_batch)                      # (B, 10)
+        preds  = np.argmax(logits.data, axis=1)         # ok to read .data for eval
+        total_correct += (preds == target_batch.data).sum()
+        total_seen    += target_batch.data.shape[0]
 
-    avg_batch_accuracy = total_batch_accuracy / num_batches
-    print(f"Average Batch Accuracy: {avg_batch_accuracy.item() * 100:.2f}%")
+    acc = (total_correct / max(1, total_seen)) * 100.0
+    print(f"Average Batch Accuracy: {acc:.2f}%")
 
-
-# Main
+# -------------------- main ----------------------
 if __name__ == "__main__":
     for epoch in range(epochs):
         train(model, criterion, optimizer, epoch)
         evaluate(model, test_data, test_labels)
-
     print("Finished Training")
