@@ -1,9 +1,10 @@
 # znet/optim/sgd.py
-import numpy as np
+from __future__ import annotations
+import torch as th
 
 class SGD:
     """
-    Tensor-native SGD optimizer.
+    Tensor-native SGD optimizer (Torch backend).
 
     params: iterable of Tensor (e.g., model.parameters())
     lr: learning rate
@@ -21,44 +22,57 @@ class SGD:
             raise ValueError("nesterov=True requires momentum > 0")
 
         # per-parameter state (e.g., momentum buffers)
-        self._state = {}  # id(param) -> {"buf": ndarray}
+        # id(param) -> {"buf": torch.Tensor}
+        self._state = {}
 
     def step(self):
-        for p in self.params:
-            if p is None or p.grad is None:
-                continue
+        # Make sure we do not create autograd history in Torch (we don't use it).
+        with th.no_grad():
+            for p in self.params:
+                if p is None or getattr(p, "grad", None) is None:
+                    continue
 
-            g = p.grad
-            # ensure dtype matches param
-            if g.dtype != p.data.dtype:
-                g = g.astype(p.data.dtype, copy=False)
-
-            # weight decay (L2)
-            if self.weight_decay != 0.0:
-                g = g + self.weight_decay * p.data
-
-            if self.momentum != 0.0:
-                st = self._state.setdefault(id(p), {})
-                buf = st.get("buf")
-                if buf is None:
-                    # init momentum buffer as gradient
-                    buf = np.array(g, dtype=p.data.dtype, copy=True)
+                # grads as torch tensor on the same device/dtype as param
+                g = p.grad
+                if not isinstance(g, th.Tensor):
+                    g = th.as_tensor(g, device=p.data.device, dtype=p.data.dtype)
                 else:
-                    buf *= self.momentum
-                    buf += g
-                st["buf"] = buf
+                    g = g.to(device=p.data.device, dtype=p.data.dtype)
 
-                if self.nesterov:
-                    # g + momentum*buf
-                    update = g + self.momentum * buf
+                # weight decay (L2)
+                if self.weight_decay != 0.0:
+                    g = g.add(p.data, alpha=self.weight_decay)
+
+                # momentum
+                if self.momentum != 0.0:
+                    st = self._state.setdefault(id(p), {})
+                    buf = st.get("buf", None)
+
+                    if (buf is None or
+                        not isinstance(buf, th.Tensor) or
+                        buf.device != p.data.device or
+                        buf.dtype  != p.data.dtype or
+                        buf.shape  != p.data.shape):
+                        # initialize buffer as a copy of the gradient
+                        buf = g.clone()
+                    else:
+                        # buf = momentum * buf + g
+                        buf.mul_(self.momentum).add_(g)
+
+                    st["buf"] = buf
+
+                    # Nesterov or classic momentum
+                    if self.nesterov:
+                        # update = g + momentum * buf
+                        update = g.add(buf, alpha=self.momentum)
+                    else:
+                        # classic: use buffer directly
+                        update = buf
                 else:
-                    # classic momentum: use buffer directly
-                    update = buf
-            else:
-                update = g
+                    update = g
 
-            # in-place param update
-            p.data -= self.lr * update
+                # in-place param update: p = p - lr * update
+                p.data.add_(update, alpha=-self.lr)
 
     def zero_grad(self):
         # Delegate to Tensor API; keeps you backend-agnostic
