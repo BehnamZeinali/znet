@@ -10,7 +10,7 @@ from znet.autograd import Tensor
 # from torchvision import datasets, transforms
 
 TRAIN_SIZE = 10000
-epochs = 20
+epochs = 50
 learning_rate = 1e-3
 batch_size = 64
 data_dir = "data"
@@ -81,8 +81,8 @@ def train(model, criterion, optimizer, epoch):
         end = time.time()
         running_loss += loss.item()
         if i % 10 == 0 :
-            print(f"Epoch: {epoch+1}, Iter: {i+1}, Loss: {loss.item():.4f}")
-            print(f"Iteration Time: {(end - start) * 1e3:.4f} sec")
+            # print(f"Epoch: {epoch+1}, Iter: {i+1}, Loss: {loss.item():.4f}")
+            # print(f"Iteration Time: {(end - start) * 1e3:.4f} sec")
             running_loss = 0.0
 
 
@@ -100,9 +100,15 @@ def evaluate(model, test_data, test_labels):
         data = Tensor(test_data[i * batch_size : (i + 1) * batch_size])
         target = Tensor(test_labels[i * batch_size : (i + 1) * batch_size], dtype=np.int32)
         outputs = model(data)
-        predicted = np.argmax(outputs.data, axis=1)
-        correct_batch = (predicted == target.data).sum().item()
-        total_batch = target.data.shape[0]
+        # logits -> NumPy (works for CUDA/MPS/CPU)
+        logits_np = outputs.data.detach().cpu().numpy()
+        predicted = np.argmax(logits_np, axis=1)
+
+        # targets -> NumPy (works for CUDA/MPS/CPU)
+        target_np = target.data.detach().cpu().numpy()
+
+        correct_batch = (predicted == target_np).sum().item()
+        total_batch = target_np.shape[0]
         if total_batch != 0:  # Check to avoid division by zero
             batch_accuracy = correct_batch / total_batch
             total_batch_accuracy += batch_accuracy
