@@ -15,10 +15,10 @@ batch_size    = 64
 
 # -------------------- data ----------------------
 data = np.load("mnist_data.npz")
-train_data   = data["train_data"]     # (N, 28, 28)
-train_labels = data["train_labels"]   # (N,)
-test_data    = data["test_data"]
-test_labels  = data["test_labels"]
+train_data  = data["train_data"]     # (N, 28, 28), uint8 or float
+train_labels = data["train_labels"]  # (N,)
+test_data   = data["test_data"]
+test_labels = data["test_labels"]
 
 # normalize to float32 in [0,1]
 if train_data.dtype != np.float32:
@@ -33,22 +33,40 @@ iters_per_epoch = TRAIN_SIZE // batch_size
 print("Iters per epoch:", iters_per_epoch)
 
 # -------------------- model ---------------------
-class MLP(nn.Module):
-    def __init__(self, in_features, hidden_features, num_classes):
+class CNN(nn.Module):
+    """
+    Simple MNIST ConvNet (N,1,28,28) -> logits (N,10)
+    Downsampling via stride-2 convs: 28x28 -> 14x14 -> 7x7
+    """
+    def __init__(self, num_classes=10):
         super().__init__()
-        self.fc1  = nn.Linear(in_features, hidden_features, bias=True)
-        self.relu = nn.ReLU()
-        self.fc2  = nn.Linear(hidden_features, num_classes, bias=True)
+        self.conv1 = nn.Conv2d(in_channels=1,  out_channels=8,  kernel_size=3, stride=1, padding=1)  # 28x28
+        self.relu1 = nn.ReLU()
+        self.conv2 = nn.Conv2d(in_channels=8,  out_channels=16, kernel_size=3, stride=2, padding=1)  # 14x14
+        self.relu2 = nn.ReLU()
+        self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=2, padding=1)  # 7x7
+        self.relu3 = nn.ReLU()
+        # 32 * 7 * 7 = 1568
+        self.fc1   = nn.Linear(32 * 7 * 7, 64, bias=True)
+        self.relu4 = nn.ReLU()
+        self.fc2   = nn.Linear(64, num_classes, bias=True)
 
     def forward(self, x: Tensor):
-        # x: (B, 28, 28) -> (B, 784)
+        # Accept (B,28,28) or (B,1,28,28); convert to NCHW
+        if len(x.shape) == 3:
+            x = x.reshape((x.shape[0], 1, x.shape[1], x.shape[2]))  # (B,1,28,28)
+
+        x = self.conv1(x); x = self.relu1(x)
+        x = self.conv2(x); x = self.relu2(x)
+        x = self.conv3(x); x = self.relu3(x)
+
+        # Flatten to (B, 1568)
         x = x.reshape((x.shape[0], -1))
-        x = self.fc1(x)
-        x = self.relu(x)
+        x = self.fc1(x);  x = self.relu4(x)
         x = self.fc2(x)
         return x
 
-model = MLP(in_features=784, hidden_features=256, num_classes=10)
+model = CNN(num_classes=10)
 criterion = nn.CrossEntropyLoss(reduction="mean")
 optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
 
@@ -66,14 +84,14 @@ def train(model, criterion, optimizer, epoch):
         target_batch = Tensor(train_labels[batch_idx].astype(np.int64), requires_grad=False)
 
         optimizer.zero_grad()
-
         iter_start = time.time()
+
         outputs = model(data_batch)                 # (B, 10)
         loss     = criterion(outputs, target_batch) # scalar
         loss.backward()
         optimizer.step()
-        iter_end = time.time()
 
+        iter_end = time.time()
         running_loss += loss.item()
         if i % 10 == 0:
             print(f"Epoch: {epoch+1}, Iter: {i+1}, Loss: {loss.item():.4f}, "
@@ -82,8 +100,7 @@ def train(model, criterion, optimizer, epoch):
 
     epoch_end = time.time()
     epoch_ms = (epoch_end - epoch_start) * 1e3
-    avg_iter_ms = epoch_ms / max(1, iters_per_epoch)
-    print(f"Epoch {epoch+1} time: {epoch_ms:.2f} ms  |  Avg iter: {avg_iter_ms:.2f} ms")
+    print(f"Epoch {epoch+1} time: {epoch_ms:.2f} ms")
     return epoch_ms
 
 # -------------------- eval ----------------------
@@ -106,12 +123,7 @@ def evaluate(model, test_data, test_labels):
 
 # -------------------- main ----------------------
 if __name__ == "__main__":
-    epoch_times = []
     for epoch in range(epochs):
-        t_ms = train(model, criterion, optimizer, epoch)
-        epoch_times.append(t_ms)
-        evaluate(model, test_data, test_labels)
-
-    avg_epoch_ms = float(np.mean(epoch_times)) if epoch_times else 0.0
-    print(f"Average epoch time over {len(epoch_times)} epochs: {avg_epoch_ms:.2f} ms")
+        train(model, criterion, optimizer, epoch)
+        evaluate(model, train_data[TRAIN_SIZE:], train_labels[TRAIN_SIZE:])
     print("Finished Training")
