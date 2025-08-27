@@ -3,7 +3,7 @@ import time
 import numpy as np
 import znet
 import znet.nn as nn
-
+from time import perf_counter
 import znet.optim as optim
 from znet.autograd import Tensor
 # from torch.utils.data import DataLoader
@@ -63,7 +63,7 @@ optimizer = optim.SGD(model.parameters(), lr=learning_rate)
 def train(model, criterion, optimizer, epoch):
     # model.train()
     running_loss = 0.0
-
+    epoch_t0 = perf_counter() 
     for i in range(iters_per_epoch):
         
         optimizer.zero_grad()
@@ -85,7 +85,7 @@ def train(model, criterion, optimizer, epoch):
             # print(f"Iteration Time: {(end - start) * 1e3:.4f} sec")
             running_loss = 0.0
 
-
+    return perf_counter() - epoch_t0
 # Evaluation function to report average batch accuracy using the loaded test data
 def evaluate(model, test_data, test_labels):
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -120,8 +120,12 @@ def evaluate(model, test_data, test_labels):
 
 # Main
 if __name__ == "__main__":
+    epoch_times = []
     for epoch in range(epochs):
-        train(model, criterion, optimizer, epoch)
+        t = train(model, criterion, optimizer, epoch)
+        epoch_times.append(t)
+        avg_t = sum(epoch_times) / len(epoch_times)
+        print(f"Epoch {epoch+1} training time: {t:.2f}s | Average: {avg_t:.2f}s")
         evaluate(model, test_data, test_labels)
 
     print("Finished Training")

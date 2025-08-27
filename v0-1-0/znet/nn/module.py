@@ -18,7 +18,18 @@ class Module:
         object.__setattr__(self, name, value)
 
     # lightweight helper to register a parameter explicitly
-    def add_parameter(self, name: str, param: Tensor | None):
+    # def add_parameter(self, name: str, param: Tensor | None):
+    #     if param is None:
+    #         setattr(self, name, None)
+    #         return
+    #     if not isinstance(param, Tensor):
+    #         raise TypeError("add_parameter expects a Tensor or None")
+    #     setattr(self, name, param)
+    #     # store the Tensor itself (not dicts); avoid duplicates
+    #     if all(id(param) != id(p) for p in self._parameters):
+    #         self._parameters.append(param)
+    from typing import Optional
+    def add_parameter(self, name: str, param: Optional["Tensor"]):
         if param is None:
             setattr(self, name, None)
             return

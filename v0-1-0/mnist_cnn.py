@@ -9,7 +9,7 @@ import znet.optim as optim
 from znet.autograd import Tensor
 
 # -------------------- config --------------------
-TRAIN_SIZE    = 10000
+TRAIN_SIZE    = 60000
 epochs        = 20
 learning_rate = 1e-3
 batch_size    = 64  # feel free to set back to 4; 64 is just faster
