@@ -1,3 +1,4 @@
+
 import time
 import numpy as np
 import mlx.core as mx
@@ -8,7 +9,7 @@ import znet.optim as optim
 from znet.autograd.tensor import Tensor
 
 # -------------------- config --------------------
-TRAIN_SIZE    = 10000
+TRAIN_SIZE    = 55000
 epochs        = 20
 learning_rate = 1e-3
 batch_size    = 64
@@ -21,10 +22,10 @@ test_data   = data["test_data"]
 test_labels = data["test_labels"]
 
 # normalize to float32 in [0,1]
-if train_data.dtype != np.float32:
-    train_data = train_data.astype(np.float32) / 255.0
-if test_data.dtype != np.float32:
-    test_data = test_data.astype(np.float32) / 255.0
+# if train_data.dtype != np.float32:
+#     train_data = train_data.astype(np.float32) / 255.0
+# if test_data.dtype != np.float32:
+#     test_data = test_data.astype(np.float32) / 255.0
 
 print("Train Data Shape:", train_data.shape, "dtype:", train_data.dtype)
 print("Test  Data Shape:", test_data.shape,  "dtype:", test_data.dtype)
@@ -68,7 +69,7 @@ class CNN(nn.Module):
 
 model = CNN(num_classes=10)
 criterion = nn.CrossEntropyLoss(reduction="mean")
-optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
+optimizer = optim.SGD(model.parameters(), lr=learning_rate)
 
 # -------------------- train ---------------------
 def train(model, criterion, optimizer, epoch):
@@ -94,13 +95,13 @@ def train(model, criterion, optimizer, epoch):
         iter_end = time.time()
         running_loss += loss.item()
         if i % 10 == 0:
-            print(f"Epoch: {epoch+1}, Iter: {i+1}, Loss: {loss.item():.4f}, "
-                  f"Iter Time: {(iter_end - iter_start)*1e3:.2f} ms")
+            # print(f"Epoch: {epoch+1}, Iter: {i+1}, Loss: {loss.item():.4f}, "
+            #       f"Iter Time: {(iter_end - iter_start)*1e3:.2f} ms")
             running_loss = 0.0
 
     epoch_end = time.time()
-    epoch_ms = (epoch_end - epoch_start) * 1e3
-    print(f"Epoch {epoch+1} time: {epoch_ms:.2f} ms")
+    epoch_ms = (epoch_end - epoch_start) 
+    print(f"Epoch {epoch+1} time: {epoch_ms:.2f} s")
     return epoch_ms
 
 # -------------------- eval ----------------------
