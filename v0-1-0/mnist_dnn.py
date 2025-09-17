@@ -13,7 +13,7 @@ from znet.autograd import Tensor
 
 
 # -------------------- config --------------------
-TRAIN_SIZE   = 10000
+TRAIN_SIZE   = 60000
 epochs       = 20
 learning_rate = 1e-3
 batch_size   = 4
@@ -80,7 +80,7 @@ def train(model, criterion, optimizer, epoch):
         end = time.time()
 
         running_loss += loss.item()
-        if i % 10 == 0:
+        if i % 1000 == 0:
             print(f"Epoch: {epoch+1}, Iter: {i+1}, Loss: {loss.item():.4f}, "
                   f"Iter Time: {(end - start)*1e3:.2f} ms")
             running_loss = 0.0

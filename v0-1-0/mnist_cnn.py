@@ -7,10 +7,10 @@ import znet.optim as optim
 from znet.autograd import Tensor
 
 # -------------------- config --------------------
-TRAIN_SIZE   = 10000
+TRAIN_SIZE   = 60000
 epochs       = 20
 learning_rate = 1e-3
-batch_size   = 4
+batch_size   = 64
 
 # -------------------- data ----------------------
 data = np.load("mnist_data.npz")
@@ -73,7 +73,7 @@ optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nester
 def train(model, criterion, optimizer, epoch):
     running_loss = 0.0
     idx = np.random.permutation(TRAIN_SIZE)
-
+    start = time.time()
     for i in range(iters_per_epoch):
         batch_idx = idx[i * batch_size : (i + 1) * batch_size]
 
@@ -82,20 +82,22 @@ def train(model, criterion, optimizer, epoch):
         target_batch = Tensor(train_labels[batch_idx].astype(np.int64), requires_grad=False)
 
         optimizer.zero_grad()
-        start = time.time()
+        
 
         outputs = model(data_batch)                 # (B, 10)
         loss     = criterion(outputs, target_batch) # scalar
         loss.backward()
         optimizer.step()
 
-        end = time.time()
+        
         running_loss += loss.item()
-        if i % 10 == 0:
-            print(f"Epoch: {epoch+1}, Iter: {i+1}, Loss: {loss.item():.4f}, "
-                  f"Iter Time: {(end - start)*1e3:.2f} ms")
-            running_loss = 0.0
-
+        # if i % 10 == 0:
+        #     print(f"Epoch: {epoch+1}, Iter: {i+1}, Loss: {loss.item():.4f}, "
+        #           f"Iter Time: {(end - start)*1e3:.2f} ms")
+            # running_loss = 0.0
+    end = time.time()
+    print(f"Epoch: {epoch+1}, Loss: {loss.item():.4f}, "
+                  f"Time: {(end - start):.2f} s")
 # -------------------- eval ----------------------
 def evaluate(model, test_data, test_labels):
     total_correct = 0

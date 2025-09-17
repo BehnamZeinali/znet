@@ -18,7 +18,8 @@ class Module:
         object.__setattr__(self, name, value)
 
     # lightweight helper to register a parameter explicitly
-    def add_parameter(self, name: str, param: Tensor | None):
+    from typing import Optional
+    def add_parameter(self, name: str, param: Optional["Tensor"]):
         if param is None:
             setattr(self, name, None)
             return

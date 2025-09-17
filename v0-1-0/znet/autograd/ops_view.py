@@ -65,3 +65,23 @@ class Sum(Function):
         # tile/broadcast to input shape
         g = np.ones(in_shape, dtype=g.dtype) * g
         return g, None, None
+    
+class SwapAxes(Function):
+    @staticmethod
+    def forward(ctx, x, axis1, axis2):
+        # normalize negative axes
+        ndim = x.ndim
+        a1 = int(axis1) % ndim
+        a2 = int(axis2) % ndim
+
+        ctx.meta = {"axis1": a1, "axis2": a2}
+        return np.swapaxes(x, a1, a2)
+
+    def backward(self, grad_out):
+        a1 = self.ctx.meta["axis1"]
+        a2 = self.ctx.meta["axis2"]
+        if a1 == a2:
+            # no-op swap
+            return grad_out, None, None
+        # swap is its own inverse
+        return np.swapaxes(grad_out, a1, a2), None, None

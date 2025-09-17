@@ -44,6 +44,10 @@ class Tensor:
     def reshape(self, new_shape):
         from .ops_view import Reshape
         return Reshape.apply(self, tuple(new_shape))
+    
+    def swapaxes(self, axis1, axis2):
+        from .ops_view import SwapAxes
+        return SwapAxes.apply(self, int(axis1), int(axis2))
 
     @property
     def T(self):
