@@ -40,6 +40,16 @@ class Tensor:
             grad = np.ones_like(self.data)
         engine_backward(self, grad, retain_graph=retain_graph)
 
+    def numel(self) -> int:
+        return int(self.data.size)
+    def view(self, *shape):
+        # accept view(B*T, C), view((B*T, C)), or view(-1, C)
+        if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
+            shape = tuple(shape[0])
+        from .ops_view import View
+        return View.apply(self, shape)
+    
+    
     # ---- Views / reductions using Function.apply ----
     def reshape(self, new_shape):
         from .ops_view import Reshape
@@ -49,11 +59,25 @@ class Tensor:
         from .ops_view import SwapAxes
         return SwapAxes.apply(self, int(axis1), int(axis2))
 
+    # inside class Tensor (optional convenience)
+    @staticmethod
+    def cat(tensors, dim=0):
+        from .autograd.ops_view import Cat as _cat
+        return _cat.apply(*tensors, int(dim))
+    
     @property
-    def T(self):
+    def T(self ):
         from .ops_view import Transpose
         return Transpose.apply(self)
+    
+    def transpose(self, dim0=-2, dim1=-1):
+        from .ops_view import Transpose
+        return Transpose.apply(self, dim0, dim1)
 
+    def masked_fill(self, mask, value):
+        from .ops_view import MaskedFill
+        return MaskedFill.apply(self, mask, value)
+    
     def flatten(self):
         from .ops_view import Flatten
         return Flatten.apply(self)
@@ -61,7 +85,33 @@ class Tensor:
     def sum(self, axis=None, keepdims=False):
         from .ops_view import Sum
         return Sum.apply(self, axis, keepdims)
+    def tolist(self):
+        return self.data.tolist()
+    def __str__(self):
+        return str(self.data)
+    def __repr__(self):
+        return f"Tensor({self.data}, requires_grad={self.requires_grad})"
+    def __len__(self):
+        if self.data.ndim == 0:
+            raise TypeError("len() of a 0-d tensor")
+        return self.data.shape[0]
+    
+    def __getitem__(self, index):
+    # normalize possible Tensor / numpy-scalar indices
+        def _norm(i):
+            if isinstance(i, Tensor):           # tensor index -> its data
+                i = i.data
+            if isinstance(i, np.generic):       # numpy scalar -> python int
+                i = int(i)
+            return i
+        if isinstance(index, tuple):
+            index = tuple(_norm(i) for i in index)
+        else:
+            index = _norm(index)
 
+        from .ops_view import Index
+        return Index.apply(self, index)
+    
 
         # ----- elementwise -----
     def __add__(self, other):

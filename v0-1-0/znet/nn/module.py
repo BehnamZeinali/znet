@@ -5,6 +5,7 @@ class Module:
     def __init__(self):
         self._parameters = []      # list[Tensor]
         self._submodules = {}      # name -> Module
+        self.training = True   # ← add this
 
     def __setattr__(self, name, value):
         # preserve your submodule auto-registration
@@ -46,6 +47,15 @@ class Module:
     def zero_grad(self):
         for p in self.parameters():
             p.zero_grad()   # Tensor API; backend-agnostic
+            
+    def train(self, mode: bool = True):
+        self.training = bool(mode)
+        for sm in self._submodules.values():
+            sm.train(mode)
+        return self
+
+    def eval(self):
+        return self.train(False)
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError

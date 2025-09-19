@@ -19,7 +19,7 @@ learning_rate = 1e-3
 batch_size   = 4
 
 # -------------------- data ----------------------
-data = np.load("mnist_data.npz")
+data = np.load("../mnist_data.npz")
 train_data  = data["train_data"]   # expect (N, 28, 28) uint8 or float
 train_labels = data["train_labels"]  # (N,)
 test_data   = data["test_data"]

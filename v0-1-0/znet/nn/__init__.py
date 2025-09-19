@@ -6,4 +6,8 @@ from .conv2d import Conv2d
 from .embedding import Embedding
 from .softmax import Softmax
 from .residual import ResidualBlock2d
+from .dropout import Dropout
+from .sequential import Sequential
+from.modulelist import ModuleList
+from .layernorm import LayerNorm
 
