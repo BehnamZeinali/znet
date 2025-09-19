@@ -67,6 +67,8 @@ for b in range(batch_size):
         context = xb[b,:t+1]
         target = yb[b,t]
         print(f"when input is {context.tolist()} the target is: {target}")
+
+        
  
 criterion = nn.CrossEntropyLoss(reduction="mean")
 from znet.autograd.ops_softmax import softmax
